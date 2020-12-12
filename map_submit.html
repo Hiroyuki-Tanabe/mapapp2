@@ -1,0 +1,1173 @@
+<!-- APIを用いたマップアプリ -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta name="viewport" content="initial-scale=1.0,
+      width=device-width" />
+  <script src="https://js.api.here.com/v3/3.1/mapsjs-core.js" type="text/javascript" charset="utf-8"></script>
+  <link href="https://use.fontawesome.com/releases/v5.0.8/css/all.css" rel="stylesheet">
+  <script src="https://js.api.here.com/v3/3.1/mapsjs-service.js" type="text/javascript" charset="utf-8"></script>
+  <script src="https://js.api.here.com/v3/3.1/mapsjs-ui.js" type="text/javascript" charset="utf-8"></script>
+  <link rel="stylesheet" type="text/css" href="https://js.api.here.com/v3/3.1/mapsjs-ui.css" />
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document</title>
+
+</head>
+
+<body>
+  <div class="overall">
+    <div>
+      <div class="nav1">近くのお店</div>
+      <div id="mapContainer">
+        <!-- HEREMap -->
+      </div>
+    </div>
+
+    <div>
+      <div class="nav2">ルートを取得</div>
+      <div id="gurunabi">
+        <!-- ぐるなびAPIのレスポンスをテンプレートリテラルで表示 -->
+        <!-- <button>Show Popup</button> -->
+      </div>
+    </div>
+  </div>
+
+
+
+
+
+
+
+  <div class="popup" id="js-popup">
+    <div class="popup-inner">
+      <div class="close-btn" id="js-close-btn"><i class="fas fa-times"></i></div>
+      <!-- <p>ポップアップの文字列</p> -->
+    </div>
+    <div class="black-background" id="js-black-bg"></div>
+  </div>
+
+  <!-- jQuery&GoogleMapsAPI -->
+  <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+  <!-- google map cluster -->
+
+
+  <!-- /jQuery&GoogleMapsAPI -->
+  <script>
+    // 各種モジュールの読み込み
+    var platform = new H.service.Platform({
+      apikey: "xxx",
+    });
+    var defaultLayers = platform.createDefaultLayers();
+    var omvService = platform.getOMVService({
+      path: "v2/vectortiles/core/mc",
+    });
+    var baseUrl = "http://js.api.here.com/v3/3.1/styles/omv/oslo/japan/";
+    // create a Japan specific style
+    var style = new H.map.Style(`${baseUrl}normal.day.yaml`, baseUrl);
+    // instantiate provider and layer for the basemap
+    var omvProvider = new H.service.omv.Provider(omvService, style);
+    var omvlayer = new H.map.layer.TileLayer(omvProvider, {
+      max: 22
+    });
+
+    // Get an instance of the geocoding service:
+    var service = platform.getSearchService();
+
+    // 1.mapsInitの定義(引数としてpositionを受け取る)
+    async function mapsInit(position) {
+      // 現在地を中心に地図表示
+      lat = position.coords.latitude
+      lng = position.coords.longitude
+      var map = new H.Map(
+        document.getElementById('mapContainer'),
+        omvlayer, {
+          zoom: 17,
+          center: {
+            lat: lat,
+            lng: lng
+          }
+        });
+
+      // ぐるなびAPI
+      const res = await fetch(
+        "https://api.gnavi.co.jp/RestSearchAPI/v3/?keyid=xxx&latitude=" + lat +
+        "&longitude=" + lng + "&range=3"
+      );
+      const users = await res.json();
+      const rest = users.rest;
+      console.log(users);
+      console.log(rest[0]["address"]);
+
+      //lat&lng, name, addressを1つずつ取り出す
+      const latlng = []
+      const name = []
+      const address = []
+      const url = []
+      for (let i = 0; i < 10; i++) {
+        // console.log(rest[i]["latitude"]);
+        // latlng.push(rest[i]["latitude"]);
+        latlng.push({
+          lat: rest[i]["latitude"],
+          lng: rest[i]["longitude"]
+        });
+
+        name.push(
+          rest[i]["name"]
+        );
+
+        address.push(
+          rest[i]["address"]
+        );
+
+        url.push(
+          rest[i]["url"]
+        );
+
+      }
+      console.log(latlng);
+      console.log(name);
+
+      // テンプレートリテラル
+      const gurunabi = Object.keys(rest).map(key =>
+        `<div class="a"><button id="js-show-popup${key}">${key}：${rest[key]["name"]}</button></div>`
+      );
+      $("#gurunabi").html(gurunabi);
+
+      // Create the default UI:
+      var ui = H.ui.UI.createDefault(map, defaultLayers, 'de-DE');
+
+      // for文・ディスプレイ
+      for (let i = 0; i < latlng.length; i++) {
+        console.log("現在" + (i + 1) + "回目の処理です。");
+        console.log(latlng[i]);
+        console.log(name[i]);
+
+        // 配列のi番目のvalueを文字列に変換
+        name_store = JSON.stringify(name[i]).slice(1, -1);
+        // addressは「〇〇市以降」を表示
+        address_store = JSON.stringify(address[i]).slice(15, -1);
+        // urlを文字列に変換
+        url_store = JSON.stringify(url[i]).slice(1, -1);
+
+        // map.addObject(new H.map.Marker(latlng[i]));
+        // Create an info bubble object at a specific geographic location & Add info bubble to the UI:
+        ui.addBubble(
+          new H.ui.InfoBubble(
+
+            latlng[i], {
+              content: `<a href=${url_store} target="_blank" rel="noopener noreferrer">${name_store}</a><br>${address_store}`
+            })
+
+        );
+      }
+
+      //　現在地をリバースジオコーディング
+      service.reverseGeocode({
+        at: lat + ',' + lng
+      }, (result) => {
+        result.items.forEach((item) => {
+          // Assumption: ui is instantiated
+          // Create an InfoBubble at the returned location with
+          // the address as its contents:
+          ui.addBubble(new H.ui.InfoBubble(item.position, {
+            // content: item.address.label
+            content: `あなたの現在地：${item.address.label}`
+          }));
+        });
+      }, alert);
+
+      // 0番目の"アクセス"を文字列に変換
+      access_line = JSON.stringify(rest[0]["access"]["line"]).slice(1, -1);
+      access_station = JSON.stringify(rest[0]["access"]["station"]).slice(1, -1);
+      access_station_exit = JSON.stringify(rest[0]["access"]["station_exit"]).slice(1, -1);
+      access_walk = JSON.stringify(rest[0]["access"]["walk"]).slice(1, -1);
+
+      // テンプレートリテラル
+      const num = 1
+      const popup_text =
+        // `<div class="a"><button id="js-show-popup">${key}：${rest[key]["name"]}</button></div>`
+        `<div class="a">
+        <table class="ask" id="ask_table" rules="rows">
+          <tr align="left">
+            <th>店名</th>
+            <td>${rest[0]["name"]}</td>
+          </tr>
+          <tr align="left">
+            <th>電話番号</th>
+            <td>${rest[0]["tel"]}</td>
+          </tr>
+          <tr align="left">
+            <th>住所</th>
+            <td>${rest[0]["address"]}</td>
+          </tr>
+          <tr align="left">
+            <th>アクセス</th>
+            <td>${access_line} ${access_station}${access_station_exit} ${access_walk}分</td>
+          </tr>
+        </div>`;
+      $(".popup-inner").html(popup_text);
+
+      console.log(rest);
+
+      // ルーティング0
+      document.getElementById("js-show-popup0").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[0]["latitude"] + ',' + rest[0]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+
+      // ルーティング1
+      document.getElementById("js-show-popup1").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[1]["latitude"] + ',' + rest[1]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+      // ルーティング2
+      document.getElementById("js-show-popup2").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[2]["latitude"] + ',' + rest[2]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+      // ルーティング3
+      document.getElementById("js-show-popup3").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[3]["latitude"] + ',' + rest[3]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+      // ルーティング4
+      document.getElementById("js-show-popup4").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[4]["latitude"] + ',' + rest[4]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+      // ルーティング5
+      document.getElementById("js-show-popup5").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[5]["latitude"] + ',' + rest[5]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+      // ルーティング6
+      document.getElementById("js-show-popup6").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[6]["latitude"] + ',' + rest[6]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+      // ルーティング7
+      document.getElementById("js-show-popup7").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[7]["latitude"] + ',' + rest[7]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+      // ルーティング8
+      document.getElementById("js-show-popup8").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[8]["latitude"] + ',' + rest[8]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+      // ルーティング9
+      document.getElementById("js-show-popup9").onclick = function () {
+        // ここに#buttonをクリックしたら発生させる処理を記述する
+
+
+        let origin;
+        let destination;
+
+        let onError = (error) => {
+          alert(error.message);
+        }
+
+        // create an instance of the routing service and make a request
+        let router = platform.getRoutingService(null, 8);
+
+        // Define a callback function to process the routing response:
+        let onResult = function (result) {
+          // ensure that at least one route was found
+          if (result.routes.length) {
+            result.routes[0].sections.forEach((section) => {
+              // Create a linestring to use as a point source for the route line
+              let linestring = H.geo.LineString.fromFlexiblePolyline(section.polyline);
+
+              // Create a polyline to display the route:
+              let routeLine = new H.map.Polyline(linestring, {
+                style: {
+                  strokeColor: 'blue',
+                  lineWidth: 3
+                }
+              });
+
+              // Create a marker for the start point:
+              let startMarker = new H.map.Marker(section.departure.place.location);
+
+              // Create a marker for the end point:
+              let endMarker = new H.map.Marker(section.arrival.place.location);
+
+              // Add the route polyline and the two markers to the map:
+              map.addObjects([routeLine, startMarker, endMarker]);
+
+              // Set the map's viewport to make the whole route visible:
+              map.getViewModel().setLookAtData({
+                bounds: routeLine.getBoundingBox()
+              });
+            });
+          }
+        };
+
+        let routingParameters = {
+          'transportMode': 'pedestrian',
+          // Include the route shape in the response
+          'return': 'polyline'
+        };
+
+        // Define a callback that calculates the route
+        let calculateRoute = () => {
+          // Make sure that both destination and origin are present
+          if (!origin || !destination) return;
+
+          // Add origin and destination to the routing parameters
+          routingParameters.origin = lat + ',' + lng;
+          // routingParameters.destination = rest[0]["latitude"]+ ',' +rest[0]["longitude"];
+          routingParameters.destination = rest[9]["latitude"] + ',' + rest[9]["longitude"];
+
+          router.calculateRoute(routingParameters, onResult, onError);
+        }
+
+        // get the instance of the Search service
+        var service = platform.getSearchService();
+
+        // geocode origin point
+        service.geocode({
+          q: '藤沢市弥勒寺2-2-8'
+        }, (result) => {
+          origin = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(origin);
+          calculateRoute();
+        }, onError);
+
+        // geocode a destination point
+        service.geocode({
+          q: rest[0]["address"]
+        }, (result) => {
+          destination = result.items[0].position.lat + ',' + result.items[0].position.lng;
+          console.log(destination);
+          calculateRoute();
+        }, onError)
+
+      };
+
+
+    }
+    // 大きなfunctionの終わり
+
+    // 2.mapsErrorの定義
+    function mapsError(error) {
+      console.log("2");
+      let e = "";
+      if (error.code == 1) {
+        //1＝位置情報取得が許可されてない（ブラウザの設定）
+        e = "位置情報が許可されてません";
+      }
+      if (error.code == 2) {
+        //2＝現在地を特定できない
+        e = "現在位置を特定できません";
+      }
+      if (error.code == 3) {
+        //3＝位置情報を取得する前にタイムアウトになった場合
+        e = "位置情報を取得する前にタイムアウトになりました";
+      }
+      alert("エラー：" + e);
+    }
+    //3.位置情報取得オプション
+    const set = {
+      enableHighAccuracy: true, //より高精度な位置を求める
+      maximumAge: 20000, //最後の現在地情報取得が20秒以内であればその情報を再利用する設定
+      timeout: 10000, //10秒以内に現在地情報を取得できなければ、処理を終了
+    };
+    //Main:位置情報を取得する処理 //getCurrentPosition :or: watchPosition
+    navigator.geolocation.getCurrentPosition(mapsInit, mapsError, set);
+
+
+    function popupImage() {
+      var popup = document.getElementById('js-popup');
+      if (!popup) return;
+
+      var blackBg = document.getElementById('js-black-bg');
+      var closeBtn = document.getElementById('js-close-btn');
+      var showBtn = document.getElementById('gurunabi');
+
+      closePopUp(blackBg);
+      closePopUp(closeBtn);
+      closePopUp(showBtn);
+
+      function closePopUp(elem) {
+        if (!elem) return;
+        elem.addEventListener('click', function () {
+          popup.classList.toggle('is-show');
+        });
+      }
+    }
+    popupImage();
+  </script>
+</body>
+
+</html>

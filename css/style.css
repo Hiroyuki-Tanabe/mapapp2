@@ -1,0 +1,103 @@
+/* mapアプリのstyleシート */
+.a {
+    /* border: 1px solid #000; */
+    border-radius: 3px;
+    padding: 5px;
+    margin: 5px 5px;
+  }
+
+.overall {
+    display: flex;
+}
+
+.nav1, .nav2{
+    /* border: 1px solid #000; */
+    font-size: 18px;
+    font-family: monospace;
+    height:50px;
+    margin-bottom: 3px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.nav1 {
+    background-color: lightsteelblue;
+}
+.nav2 {
+    width: 150px;
+    background-color: royalblue;
+    margin-left: 3px;
+}
+#gurunabi {
+    /* width: 150px; */
+}
+
+.btn {
+    width: 100px;
+}
+
+  body {
+    width: 90vw;
+    height: 92vh;
+  }
+
+  #mapContainer {
+    width: 90vw;
+    height: 92vh;
+  }
+
+  .popup {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: .6s;
+  }
+  .popup.is-show {
+    opacity: 1;
+    visibility: visible;
+  }
+  .popup-inner {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%,-50%);
+    width: 80%;
+    max-width: 600px;
+    padding: 50px;
+    background-color: #fff;
+    z-index: 2;
+  }
+  .popup-inner img {
+    width: 100%;
+  }
+  .close-btn {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 50px;
+    height: 50px;
+    line-height: 50px;
+    text-align: center;
+    cursor: pointer;
+  }
+  .close-btn i {
+    font-size: 20px;
+    color: #333;
+  }
+  .black-background {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,.8);
+    z-index: 1;
+    cursor: pointer;
+  }
+
+  
